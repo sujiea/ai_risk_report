@@ -41,12 +41,63 @@ with st.sidebar:
     st.caption("If empty, the app will try OPENAI_API_KEY environment variable.")
     submit = st.button("Run")
 
-def fetch_prices(tickers, start):
+def fetch_prices(tickers: str, start):
+    import pandas as pd, yfinance as yf
+
     syms = [t.strip().upper() for t in tickers.split(",") if t.strip()]
-    data = yf.download(syms, start=str(start))["Adj Close"]
+    if not syms:
+        return pd.DataFrame()
+
+    # auto_adjust=True returns already-adjusted prices under "Close"
+    data = yf.download(
+        syms,
+        start=str(start),
+        progress=False,
+        auto_adjust=True,
+        threads=False,
+    )
+
+    if data is None or data.empty:
+        return pd.DataFrame()
+
+    # If single column DataFrame or Series
     if isinstance(data, pd.Series):
-        data = data.to_frame()
-    return data
+        close = data.to_frame(name=syms[0])
+        return close
+
+    # Try simple flat columns first
+    if "Close" in data.columns:
+        close = data["Close"]
+    elif "Adj Close" in data.columns:
+        close = data["Adj Close"]
+    # Handle MultiIndex (level 0: field, level 1: ticker)
+    elif isinstance(data.columns, pd.MultiIndex):
+        lvl0 = set(data.columns.get_level_values(0))
+        if "Close" in lvl0:
+            close = data.xs("Close", axis=1, level=0, drop_level=True)
+        elif "Adj Close" in lvl0:
+            close = data.xs("Adj Close", axis=1, level=0, drop_level=True)
+        else:
+            # last fallback: pick the last level that looks like close
+            candidates = [k for k in lvl0 if k.lower().startswith("close")]
+            if candidates:
+                close = data.xs(candidates[0], axis=1, level=0, drop_level=True)
+            else:
+                raise KeyError(f"No Close/Adj Close in columns: {lvl0}")
+    else:
+        raise KeyError(f"Unexpected columns: {list(data.columns)}")
+
+    if isinstance(close, pd.Series):
+        close = close.to_frame()
+
+    # Clean up empty columns (e.g., invalid tickers)
+    close = close.dropna(how="all", axis=1)
+
+    if close.empty:
+        raise ValueError("No usable close prices returned. Check tickers/date range or API throttling.")
+
+    return close
+
 
 def fetch_google_news(query):
     url = f"https://news.google.com/rss/search?q={query}"
@@ -75,9 +126,10 @@ def fetch_fred(series_id, api_key):
 if submit:
     with st.spinner("Fetching data and computing analytics..."):
         prices = fetch_prices(tickers, start)
-        st.subheader("Prices (Adj Close)")
+        st.subheader("Prices (Adj. Close, auto-adjusted)")
         st.dataframe(prices.tail())
         st.line_chart(prices)
+
 
         # Core metrics
         metrics = compute_risk_metrics(prices)
