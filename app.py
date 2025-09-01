@@ -99,8 +99,12 @@ def fetch_prices(tickers: str, start):
     return close
 
 
-def fetch_google_news(query):
-    url = f"https://news.google.com/rss/search?q={query}"
+from urllib.parse import quote_plus
+
+def fetch_google_news(query: str):
+    # Encode query so spaces and special chars are safe in the URL
+    q = quote_plus(query)
+    url = f"https://news.google.com/rss/search?q={q}"
     feed = feedparser.parse(url)
     items = [(e.title, e.link) for e in feed.entries[:10]]
     return items, url
