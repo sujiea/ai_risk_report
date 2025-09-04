@@ -8,6 +8,8 @@ A Streamlit web app to assemble low-cost data (Yahoo Finance, Google News RSS, F
 - SEC/ASX disclosures list, optional LLM summaries
 - One-click Markdown and PDF export
 
+![AI Risk Report UI](UI.png)
+
 ## Quick Start
 ```bash
 pip install -r requirements.txt
