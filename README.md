@@ -9,6 +9,7 @@ A Streamlit web app to assemble low-cost data (Yahoo Finance, Google News RSS, F
 - One-click Markdown and PDF export
 
 ![AI Risk Report UI](UI.png)
+![AI Risk Report UI](ui2.png)
 
 ## Quick Start
 ```bash
